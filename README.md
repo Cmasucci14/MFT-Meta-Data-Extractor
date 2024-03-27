@@ -50,24 +50,14 @@
 
               Short options (single letter) are prefixed with a single dash. Long commands are prefixed with two dashes
 
-## Documentation
 
-MFT parser for NTFS file systems.
+# Original author
 
-[Introducing MFTECmd!](https://binaryforay.blogspot.com/2018/06/introducing-mftecmd.html)
+Eric Zimmerman:
+https://github.com/EricZimmerman/MFTECmd
 
-[MFTECmd v0.2.6.0 released](https://binaryforay.blogspot.com/2018/06/mftecmd-v0260-released.html)
 
-[MFTECmd 0.3.6.0 released](https://binaryforay.blogspot.com/2018/12/mftecmd-0360-released.html)
-
-[Locked file support added to AmcacheParser, AppCompatCacheParser, MFTECmd, ShellBags Explorer (and SBECmd), and Registry Explorer (and RECmd)](https://binaryforay.blogspot.com/2019/01/locked-file-support-added-to.html)
-
-# Download Eric Zimmerman's Tools
-
-All of Eric Zimmerman's tools can be downloaded [here](https://ericzimmerman.github.io/#!index.md). Use the [Get-ZimmermanTools](https://f001.backblazeb2.com/file/EricZimmermanTools/Get-ZimmermanTools.zip) PowerShell script to automate the download and updating of the EZ Tools suite. Additionally, you can automate each of these tools using [KAPE](https://www.kroll.com/en/services/cyber-risk/incident-response-litigation-support/kroll-artifact-parser-extractor-kape)!
-
-# Special Thanks
-
-Open Source Development funding and support provided by the following contributors: 
-- [SANS Institute](http://sans.org/) and [SANS DFIR](http://dfir.sans.org/).
-- [Tines](https://www.tines.com/?utm_source=oss&utm_medium=sponsorship&utm_campaign=ericzimmerman)
+# Contributions made
+-Add the option to extract only resident data files
+-Properly extract all resident data from each file
+-Add option for excel compatibility using CSV

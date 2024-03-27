@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "MFTECmd": {
+      "commandName": "Project",
+      "commandLineArgs": "-f \"C:\\WIU\\Masters_Project\\MFTECmd-master\\$MFT-Recycle-Delete2.copy0\" --csv \"C:\\WIU\\Masters_Project\\MFTECmd-master\\Outputs\" --csvf Recycle3.csv -r"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\bin\Debug\net462\MFTECmd.exe.config
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\bin\Debug\net462\MFTECmd.exe
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\bin\Debug\net462\MFTECmd.pdb
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.csproj.AssemblyReference.cache
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.csproj.SuggestedBindingRedirects.cache
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.exe.config
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.GeneratedMSBuildEditorConfig.editorconfig
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.AssemblyInfoInputs.cache
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.AssemblyInfo.cs
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.csproj.CoreCompileInputs.cache
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.exe
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.pdb
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.csproj.Fody.CopyLocal.cache
+C:\WIU\Masters_Project\MFTECmd-master\MFTECmd\obj\Debug\net462\MFTECmd.csproj.Fody.RuntimeCopyLocal.cache

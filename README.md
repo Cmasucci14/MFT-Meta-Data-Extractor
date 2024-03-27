@@ -59,5 +59,7 @@ https://github.com/EricZimmerman/MFTECmd
 
 # Contributions made
 -Add the option to extract only resident data files
+
 -Properly extract all resident data from each file
+
 -Add option for excel compatibility using CSV

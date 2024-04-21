@@ -3,7 +3,7 @@ using MFT.Attributes;
 
 namespace MFTECmd;
 
-public class MFTRecordOut
+public class MFTResidentOut
 {
     public uint EntryNumber { get; set; }
     public ushort SequenceNumber { get; set; }
@@ -17,15 +17,15 @@ public class MFTRecordOut
 
     public string ResidentData { get; set; }
 
-    public bool IsResident {  get; set; }
+    public bool IsResident { get; set; }
 
     public int ResLength { get; set; }
 
     public string Extension { get; set; }
 
     public bool IsDirectory { get; set; }
-    public bool HasAds { get; set; }
-    public bool IsAds { get; set; }
+    //public bool HasAds { get; set; }
+    //public bool IsAds { get; set; }
 
     public ulong FileSize { get; set; }
 
@@ -47,38 +47,17 @@ public class MFTRecordOut
 
     public int SecurityId { get; set; }
 
-    public string ZoneIdContents { get; set; }
+    //public string ZoneIdContents { get; set; }
     public StandardInfo.Flag SiFlags { get; set; }
-    public string ObjectIdFileDroid { get; set; }
-    public string ReparseTarget { get; set; }
+    //public string ObjectIdFileDroid { get; set; }
+    //public string ReparseTarget { get; set; }
     public int ReferenceCount { get; set; }
     public NameTypes NameType { get; set; }
-    public string LoggedUtilStream { get; set; }
-    public bool Timestomped { get; set; }
-    public bool uSecZeros { get; set; }
+    //public string LoggedUtilStream { get; set; }
+    //public bool Timestomped { get; set; }
+    //public bool uSecZeros { get; set; }
     public bool Copied { get; set; }
 
     public int FnAttributeId { get; set; }
     public int OtherAttributeId { get; set; }
-}
-
-public class FileListEntry
-{
-    public FileListEntry(MFTRecordOut r)
-    {
-        FullPath = $"{r.ParentPath}\\{r.FileName}";
-        Extension = r.Extension;
-        IsDirectory = r.IsDirectory;
-        FileSize = r.FileSize;
-        Created0x10 = r.Created0x10;
-        LastModified0x10 = r.LastModified0x10;
-    }
-
-    public string FullPath { get; set; }
-    public string Extension { get; set; }
-
-    public bool IsDirectory { get; set; }
-    public ulong FileSize { get; set; }
-    public DateTimeOffset? Created0x10 { get; set; }
-    public DateTimeOffset? LastModified0x10 { get; set; }
 }

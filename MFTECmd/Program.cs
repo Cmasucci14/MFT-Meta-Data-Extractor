@@ -69,7 +69,9 @@ public class Program
     private static CsvWriter _csvWriterExtra;  //Extra CSV file for spliting large data amounts compatible for Excel
     private static CsvWriter _fileListWriter;
     private static List<MFTRecordOut> _mftOutRecords;
+    private static List<MFTResidentOut> _mftResidentOut;
     private static List<JEntryOut> _jOutRecords;
+    private static int recordNum = 0; //Number of records being printed
 
     private static RootCommand _rootCommand;
 
@@ -175,12 +177,12 @@ public class Program
                 "--at",
                 () => false,
                 "When true, include all timestamps from 0x30 attribute vs only when they differ from 0x10 in the $MFT"),
-            
+
             new Option<bool>(
                 "--rs",
                 () => false,
                 "When true, recover slack space from FILE records when processing $MFT files. This option has no effect for $I30 files"),
-            
+
             new Option<bool>(
                 "--vss",
                 () => false,
@@ -207,12 +209,12 @@ public class Program
         _rootCommand.Handler = CommandHandler.Create(DoWork);
 
         await _rootCommand.InvokeAsync(args);
-        
+
         Log.CloseAndFlush();
     }
 
     private static string _activeDateTimeFormat;
-    
+
     class DateTimeOffsetFormatter : IFormatProvider, ICustomFormatter
     {
         private readonly IFormatProvider _innerFormatProvider;
@@ -244,17 +246,17 @@ public class Program
             return arg.ToString();
         }
     }
-    
+
     private static void DoWork(string f, bool r, bool e, string m, string json, string jsonf, string csv, string csvf, string body, string bodyf, string bdl, bool blf, string dd, string @do, string de, bool dr, bool fls, string ds, string dt, bool sn, bool fl, bool at, bool rs, bool vss, bool dedupe, bool debug, bool trace)
     {
         var levelSwitch = new LoggingLevelSwitch();
 
         _activeDateTimeFormat = dt;
-        
+
         var formatter  =
             new DateTimeOffsetFormatter(CultureInfo.CurrentCulture);
 
-        
+
         var template = "{Message:lj}{NewLine}{Exception}";
 
         if (debug)
@@ -268,13 +270,13 @@ public class Program
             levelSwitch.MinimumLevel = LogEventLevel.Verbose;
             template = "[{Timestamp:HH:mm:ss.fff} {Level:u3}] {Message:lj}{NewLine}{Exception}";
         }
-        
+
         var conf = new LoggerConfiguration()
             .WriteTo.Console(outputTemplate: template,formatProvider: formatter)
             .MinimumLevel.ControlledBy(levelSwitch);
-      
+
         Log.Logger = conf.CreateLogger();
-        
+
         if (f.IsNullOrEmpty())
         {
             var helpBld = new HelpBuilder(LocalizationResources.Instance, Console.WindowWidth);
@@ -372,10 +374,10 @@ public class Program
                     Log.Warning("--csv is required. Exiting");
                     return;
                 }
-                
+
                 ProcessI30(f, csv, csvf, json, jsonf, dt);
                 break;
-                
+
             case FileType.Mft:
                 if (csv.IsNullOrEmpty() &&
                     json.IsNullOrEmpty() &&
@@ -480,7 +482,7 @@ public class Program
                         Log.Error("File {M} is not an MFT file!! Verify path and try again. Exiting",m);
                         return;
                     }
-                    
+
                     var drDir2 = string.Empty;
                     if (dr)
                     {
@@ -531,25 +533,25 @@ public class Program
         try
         {
             i30 = I30File.Load(f);
-            
+
         }
         catch (Exception e)
         {
             Log.Error(e,"There was an error loading the file! Error: {Message}",e.Message);
             return;
         }
-        
+
         sw.Stop();
-        
+
         Console.WriteLine();
         Log.Information(
             "Processed {F} in {TotalSeconds:N4} seconds",f,sw.Elapsed.TotalSeconds);
         Console.WriteLine();
 
         var dt = DateTimeOffset.UtcNow;
-        
+
         Log.Information("$I30 contains {Active:N0} active and {Slack:N0} slack entries",i30.Entries.Count(t=>t.FromSlack == false),i30.Entries.Count(t=>t.FromSlack));
-        
+
         StreamWriter swCsv;
 
         if (Directory.Exists(csv) == false)
@@ -571,14 +573,14 @@ public class Program
 
         string outName;
         string outFile;
-        
+
         outName = $"{dt:yyyyMMddHHmmss}_MFTECmd_$I30_Output.csv";
 
         if (csvf.IsNullOrEmpty() == false)
         {
             outName = Path.GetFileName(csvf);
         }
-        
+
         outFile = Path.Combine(csv, outName);
 
         Log.Information("\tCSV output will be saved to {OutFile}",outFile);
@@ -586,11 +588,11 @@ public class Program
         swCsv = new StreamWriter(outFile, false, Encoding.UTF8);
 
         _csvWriter = new CsvWriter(swCsv, CultureInfo.InvariantCulture);
-        
+
         //start here
-        
+
            var foo = _csvWriter.Context.AutoMap<I30Out>();
-           
+
            foo.Map(t => t.CreatedOn).Convert(t => $"{t.Value.CreatedOn?.ToString(dateFormat)}");
            foo.Map(t => t.LastAccessedOn).Convert(t => $"{t.Value.LastAccessedOn?.ToString(dateFormat)}");
            foo.Map(t => t.RecordModifiedOn).Convert(t => $"{t.Value.RecordModifiedOn?.ToString(dateFormat)}");
@@ -607,7 +609,7 @@ public class Program
 
                         var ieOut = new I30Out
                         {
-                        
+
                             Offset = index.AbsoluteOffset,
                             FromSlack = index.FromSlack,
                             SelfMftEntry = index.MftReferenceSelf?.MftEntryNumber,
@@ -623,7 +625,7 @@ public class Program
                             LastAccessedOn = index.FileInfo.LastAccessedOn,
                             PhysicalSize = index.FileInfo.PhysicalSize,
                             LogicalSize = index.FileInfo.LogicalSize,
-                            
+
                             SourceFile = f
                         };
 
@@ -632,9 +634,9 @@ public class Program
                         _csvWriter.WriteRecord(ieOut);
                         _csvWriter.NextRecord();
                     }
-        
-        //END HERE 
-        
+
+        //END HERE
+
         swCsv.Flush();
         swCsv.Close();
 
@@ -1488,8 +1490,8 @@ public class Program
         }
     }
 
-    
-    
+
+
     private static void ProcessMft(string file, bool res, bool exc, bool vss, bool dedupe, string body, string bdl, string bodyf, bool blf, string csv, string csvf, string json, string jsonf, bool fl, string dt, string dd, string @do, bool fls, bool includeShort, bool alltimestamp, string de, bool rs, string drDir)
     {
         var mftFiles = new Dictionary<string, Mft>();
@@ -1530,7 +1532,7 @@ public class Program
         {
             Log.Warning("{File} is in use. Rerouting...",file);
             Console.WriteLine();
-            
+
             var ll = new List<string> { file };
 
             if (vss)
@@ -1582,7 +1584,7 @@ public class Program
         Log.Information(
             "Processed {File}{Extra} in {TotalSeconds:N4} seconds",file,extra,sw.Elapsed.TotalSeconds);
         Console.WriteLine();
-        
+
         var dateTimeOffset = DateTimeOffset.UtcNow;
 
         foreach (var mftFile in mftFiles)
@@ -1695,6 +1697,7 @@ public class Program
             if (json.IsNullOrEmpty() == false)
             {
                 _mftOutRecords = new List<MFTRecordOut>();
+                _mftResidentOut = new List<MFTResidentOut>();
             }
 
             if (csv.IsNullOrEmpty() == false ||
@@ -1789,8 +1792,8 @@ public class Program
 
                             _csvWriter = new CsvWriter(swCsv, CultureInfo.InvariantCulture);
 
-                            var foo = _csvWriter.Context.AutoMap<MFTRecordOut>();
-                            var temp = new MFTRecordOut();
+                            var foo = _csvWriter.Context.AutoMap<MFTResidentOut>();
+                            var temp = new MFTResidentOut();
 
                             foo.Map(t => t.EntryNumber).Index(0);
                             foo.Map(t => t.SequenceNumber).Index(1);
@@ -1848,7 +1851,7 @@ public class Program
 
                             _csvWriter.Context.RegisterClassMap(foo);
 
-                            _csvWriter.WriteHeader<MFTRecordOut>();
+                            _csvWriter.WriteHeader<MFTResidentOut>();
                             _csvWriter.NextRecord();
                         }
                         catch (Exception e)
@@ -1877,52 +1880,58 @@ public class Program
                             foo.Map(t => t.SequenceNumber).Index(1);
                             foo.Map(t => t.InUse).Index(2);
                             foo.Map(t => t.ParentEntryNumber).Index(3);
-                            foo.Map(t => t.ParentSequenceNumber).Index(4);   
+                            foo.Map(t => t.ParentSequenceNumber).Index(4);
                             foo.Map(t => t.ParentPath).Index(5);
                             foo.Map(t => t.FileName).Index(6);
                             foo.Map(t => t.Extension).Index(7);
                             foo.Map(t => t.FileSize).Index(8);
                             foo.Map(t => t.ReferenceCount).Index(9);
+                            foo.Map(t => t.ReparseTarget).Index(10);
 
-                            foo.Map(t => t.IsDirectory).Index(10);
-                            foo.Map(t => t.Copied).Index(11);
+                            foo.Map(t => t.IsDirectory).Index(11);
+                            foo.Map(t => t.HasAds).Index(12);
+                            foo.Map(t => t.IsAds).Index(13);
+                            foo.Map(t => t.Timestomped).Index(14).Name("SI<FN");
+                            foo.Map(t => t.uSecZeros).Index(15);
+                            foo.Map(t => t.Copied).Index(16);
                             foo.Map(t => t.SiFlags).Convert(t => t.Value.SiFlags.ToString().Replace(", ", "|"))
-                                .Index(12);
+                                .Index(17);
+                            foo.Map(t => t.NameType).Index(18);
 
                             foo.Map(t => t.Created0x10).Convert(t =>
-                                $"{t.Value.Created0x10?.ToString(dt)}").Index(13);
+                                $"{t.Value.Created0x10?.ToString(dt)}").Index(19);
                             foo.Map(t => t.Created0x30).Convert(t =>
-                                $"{t.Value.Created0x30?.ToString(dt)}").Index(14);
+                                $"{t.Value.Created0x30?.ToString(dt)}").Index(20);
 
                             foo.Map(t => t.LastModified0x10).Convert(t =>
-                                $"{t.Value.LastModified0x10?.ToString(dt)}")
-                                .Index(15);
+                                    $"{t.Value.LastModified0x10?.ToString(dt)}")
+                                .Index(21);
                             foo.Map(t => t.LastModified0x30).Convert(t =>
-                                $"{t.Value.LastModified0x30?.ToString(dt)}")
-                                .Index(16);
+                                    $"{t.Value.LastModified0x30?.ToString(dt)}")
+                                .Index(22);
 
                             foo.Map(t => t.LastRecordChange0x10).Convert(t =>
-                                $"{t.Value.LastRecordChange0x10?.ToString(dt)}")
-                                .Index(17);
+                                    $"{t.Value.LastRecordChange0x10?.ToString(dt)}")
+                                .Index(23);
                             foo.Map(t => t.LastRecordChange0x30).Convert(t =>
-                                $"{t.Value.LastRecordChange0x30?.ToString(dt)}")
-                                .Index(18);
+                                    $"{t.Value.LastRecordChange0x30?.ToString(dt)}")
+                                .Index(24);
 
                             foo.Map(t => t.LastAccess0x10).Convert(t =>
-                                $"{t.Value.LastAccess0x10?.ToString(dt)}")
-                                .Index(19);
+                                    $"{t.Value.LastAccess0x10?.ToString(dt)}")
+                                .Index(25);
 
                             foo.Map(t => t.LastAccess0x30).Convert(t =>
-                                $"{t.Value.LastAccess0x30?.ToString(dt)}")
-                                .Index(20);
+                                    $"{t.Value.LastAccess0x30?.ToString(dt)}")
+                                .Index(26);
 
-                            foo.Map(t => t.UpdateSequenceNumber).Index(21);
-                            foo.Map(t => t.LogfileSequenceNumber).Index(22);
-                            foo.Map(t => t.SecurityId).Index(23);
+                            foo.Map(t => t.UpdateSequenceNumber).Index(27);
+                            foo.Map(t => t.LogfileSequenceNumber).Index(28);
+                            foo.Map(t => t.SecurityId).Index(29);
 
-                            foo.Map(t => t.IsResident).Index(24);
-                            foo.Map(t => t.ResLength).Index(25);
-                            foo.Map(t => t.ResidentData).Index(26);
+                            foo.Map(t => t.ObjectIdFileDroid).Index(30);
+                            foo.Map(t => t.LoggedUtilStream).Index(31);
+                            foo.Map(t => t.ZoneIdContents).Index(32);
 
                             foo.Map(t => t.FnAttributeId).Ignore();
                             foo.Map(t => t.OtherAttributeId).Ignore();
@@ -1938,46 +1947,52 @@ public class Program
                             fooE.Map(t => t.Extension).Index(7);
                             fooE.Map(t => t.FileSize).Index(8);
                             fooE.Map(t => t.ReferenceCount).Index(9);
+                            fooE.Map(t => t.ReparseTarget).Index(10);
 
-                            fooE.Map(t => t.IsDirectory).Index(10);
-                            fooE.Map(t => t.Copied).Index(11);
+                            fooE.Map(t => t.IsDirectory).Index(11);
+                            fooE.Map(t => t.HasAds).Index(12);
+                            fooE.Map(t => t.IsAds).Index(13);
+                            fooE.Map(t => t.Timestomped).Index(14).Name("SI<FN");
+                            fooE.Map(t => t.uSecZeros).Index(15);
+                            fooE.Map(t => t.Copied).Index(16);
                             fooE.Map(t => t.SiFlags).Convert(t => t.Value.SiFlags.ToString().Replace(", ", "|"))
-                                .Index(12);
+                                .Index(17);
+                            fooE.Map(t => t.NameType).Index(18);
 
                             fooE.Map(t => t.Created0x10).Convert(t =>
-                                $"{t.Value.Created0x10?.ToString(dt)}").Index(13);
+                                $"{t.Value.Created0x10?.ToString(dt)}").Index(19);
                             fooE.Map(t => t.Created0x30).Convert(t =>
-                                $"{t.Value.Created0x30?.ToString(dt)}").Index(14);
+                                $"{t.Value.Created0x30?.ToString(dt)}").Index(20);
 
                             fooE.Map(t => t.LastModified0x10).Convert(t =>
-                                $"{t.Value.LastModified0x10?.ToString(dt)}")
-                                .Index(15);
+                                    $"{t.Value.LastModified0x10?.ToString(dt)}")
+                                .Index(21);
                             fooE.Map(t => t.LastModified0x30).Convert(t =>
-                                $"{t.Value.LastModified0x30?.ToString(dt)}")
-                                .Index(16);
+                                    $"{t.Value.LastModified0x30?.ToString(dt)}")
+                                .Index(22);
 
                             fooE.Map(t => t.LastRecordChange0x10).Convert(t =>
-                                $"{t.Value.LastRecordChange0x10?.ToString(dt)}")
-                                .Index(17);
+                                    $"{t.Value.LastRecordChange0x10?.ToString(dt)}")
+                                .Index(23);
                             fooE.Map(t => t.LastRecordChange0x30).Convert(t =>
-                                $"{t.Value.LastRecordChange0x30?.ToString(dt)}")
-                                .Index(18);
+                                    $"{t.Value.LastRecordChange0x30?.ToString(dt)}")
+                                .Index(24);
 
                             fooE.Map(t => t.LastAccess0x10).Convert(t =>
-                                $"{t.Value.LastAccess0x10?.ToString(dt)}")
-                                .Index(19);
+                                    $"{t.Value.LastAccess0x10?.ToString(dt)}")
+                                .Index(25);
 
                             fooE.Map(t => t.LastAccess0x30).Convert(t =>
-                                $"{t.Value.LastAccess0x30?.ToString(dt)}")
-                                .Index(20);
+                                    $"{t.Value.LastAccess0x30?.ToString(dt)}")
+                                .Index(26);
 
-                            fooE.Map(t => t.UpdateSequenceNumber).Index(21);
-                            fooE.Map(t => t.LogfileSequenceNumber).Index(22);
-                            fooE.Map(t => t.SecurityId).Index(23);
+                            fooE.Map(t => t.UpdateSequenceNumber).Index(27);
+                            fooE.Map(t => t.LogfileSequenceNumber).Index(28);
+                            fooE.Map(t => t.SecurityId).Index(29);
 
-                            fooE.Map(t => t.IsResident).Index(24);
-                            fooE.Map(t => t.ResLength).Index(25);
-                            fooE.Map(t => t.ResidentData).Index(26);
+                            fooE.Map(t => t.ObjectIdFileDroid).Index(30);
+                            fooE.Map(t => t.LoggedUtilStream).Index(31);
+                            fooE.Map(t => t.ZoneIdContents).Index(32);
 
                             fooE.Map(t => t.FnAttributeId).Ignore();
                             fooE.Map(t => t.OtherAttributeId).Ignore();
@@ -2001,11 +2016,11 @@ public class Program
                         }
                     }
 
-                    
+
                 }
             }
 
-            if (swBody != null || swCsv != null || _mftOutRecords != null)
+            if (swBody != null || swCsv != null || _mftOutRecords != null || _mftResidentOut != null)
             {
                 try
                 {
@@ -2017,7 +2032,7 @@ public class Program
                             Directory.CreateDirectory(drDir);
                         }
                     }
-                    
+
                     ProcessRecords(mftFile.Value.FileRecords, includeShort, alltimestamp, bdl,drDir, res, exc);
                     ProcessRecords(mftFile.Value.FreeFileRecords, includeShort, alltimestamp, bdl,drDir, res, exc);
                 }
@@ -2096,11 +2111,15 @@ public class Program
 
                     using var sWrite =
                         new StreamWriter(new FileStream(outFile, FileMode.OpenOrCreate, FileAccess.Write));
-                    if (_mftOutRecords != null)
+                    if (_mftOutRecords != null || _mftResidentOut != null)
                     {
                         foreach (var mftOutRecord in _mftOutRecords)
                         {
                             sWrite.WriteLine(mftOutRecord.ToJson());
+                        }
+                        foreach (var mftResOutRecord in _mftResidentOut)
+                        {
+                            sWrite.WriteLine(mftResOutRecord.ToJson());
                         }
                     }
 
@@ -2141,7 +2160,7 @@ public class Program
             if (offsetOk)
             {
                 using var b = new BinaryReader(File.OpenRead(file));
-                b.BaseStream.Seek(offset * _mft.FileRecords.Values.First().AllocatedRecordSize, 0); // offset is the FILE entry, so we need to multiply it by the size of the record, typically 1024, but dont assume that 
+                b.BaseStream.Seek(offset * _mft.FileRecords.Values.First().AllocatedRecordSize, 0); // offset is the FILE entry, so we need to multiply it by the size of the record, typically 1024, but dont assume that
 
                 var fileBytes = b.ReadBytes(1024);
 
@@ -2165,7 +2184,7 @@ public class Program
 
         #region DumpResident
 
-   
+
 
         #endregion
 
@@ -2175,7 +2194,7 @@ public class Program
         {
             return;
         }
-        
+
         Console.WriteLine();
 
         FileRecord fr = null;
@@ -2208,7 +2227,7 @@ public class Program
             {
                 entryOk = int.TryParse(segs[0], out entry);
             }
-            
+
             //try to find correct one
 
             var ff = _mft.FileRecords.Keys.Where(t => t.StartsWith($"{entry:X8}-")).ToList();
@@ -2244,7 +2263,7 @@ public class Program
 
                     if (record != null)
                     {
-                        Log.Information("{Entry}-{Seq}",$"0x{record.EntryNumber:X}",$"0x{record.SequenceNumber:X}");    
+                        Log.Information("{Entry}-{Seq}",$"0x{record.EntryNumber:X}",$"0x{record.SequenceNumber:X}");
                     }
                 }
 
@@ -2275,7 +2294,7 @@ public class Program
                 entryOk = int.TryParse(segs[0], out entry);
                 seqOk = int.TryParse(segs[1], out seq);
             }
-            
+
             //try to find correct one
 
             var ff = _mft.FileRecords.Keys.Where(t => t.Equals($"{entry:X8}-{seq:X8}")).ToList();
@@ -2284,7 +2303,7 @@ public class Program
             {
                 ff = _mft.FreeFileRecords.Keys.Where(t => t.Equals($"{entry:X8}-{seq:X8}")).ToList();
             }
-            
+
             if (ff.Count == 1)
             {
                 key = ff.First();
@@ -2298,7 +2317,7 @@ public class Program
 
                 Environment.Exit(-1);
             }
-            
+
         }
 
 
@@ -2377,16 +2396,16 @@ public class Program
         {
             Log.Information("Dumping details for file record with key {Key}",key);
             Console.WriteLine();
-            
+
             var fa0 = fr.FixupData.FixupActual[0].ToArray();
             var fa1 = fr.FixupData.FixupActual[1].ToArray();
             var das0 = BitConverter.ToString(fa0);
             var das1 = BitConverter.ToString(fa1);
-            
+
             var actual = $"{das0} | {das1}";
 
             var expected = BitConverter.ToString(BitConverter.GetBytes(fr.FixupData.FixupExpected));
-            
+
             Log.Information("Entry-seq #: {Entry}-{Seq}, Offset: {Offset}, Flags: {Flags}, Log seq #: {Lsn}, Base Record entry-seq: {BaseEntry}-{BaseSeq}"
                 ,$"0x{fr.EntryNumber:X}",$"0x{fr.SequenceNumber:X}",$"0x{fr.Offset:X}",fr.EntryFlags,$"0x{fr.LogSequenceNumber:X}",$"0x{fr.MftRecordToBaseRecord.MftEntryNumber:X}",$"0x{fr.MftRecordToBaseRecord.MftSequenceNumber:X}");
             Log.Information("Reference count: {RefCount}, FixUp Data Expected: {Expected:X}, FixUp Data Actual: {Actual} (FixUp OK: {Ok})",$"0x{fr.ReferenceCount:X}",expected,actual,fr.FixupOk);
@@ -2394,15 +2413,15 @@ public class Program
             void DumpAttributeInfo(Attribute item, string description)
             {
                 Log.Information("**** {Type} ****",description);
-                
+
                 Log.Information("  Attribute #: {AttrNumber}, Size: {Size}, Content size: {ContentSize}, Name size: {NameSize}, ContentOffset {ContentOffset}. Resident: {Resident}", $"0x{item.AttributeNumber:X}",
                     $"0x{item.AttributeSize:X}", $"0x{item.AttributeContentLength:X}", $"0x{item.NameSize:X}", $"0x{item.ContentOffset:X}", item.IsResident);
-                
+
                 if (item.AttributeDataFlag > 0)
                 {
                     Log.Information("  Attribute flags: {AttributeFlags}", item.AttributeDataFlag);
                 }
-                
+
                 if (item.Name.IsNullOrEmpty() == false)
                 {
                     Log.Information("  Name: {Name}", item.Name);
@@ -2430,7 +2449,7 @@ public class Program
 
                 Console.WriteLine();
                 Log.Information("  DataRuns Entries (Cluster offset -> # of clusters)");
-                            
+
                 foreach (var dataRun in nonResidentData.DataRuns)
                 {
                     Log.Information("  {Offset} ->      {Clusters}",$"0x{dataRun.ClusterOffset:X}".PadRight(32),$"0x{dataRun.ClustersInRun:X}");
@@ -2454,7 +2473,7 @@ public class Program
                 foreach (var aceRecord in acl.AceRecords)
                 {
                     Log.Information("    ------------ Ace record #{I} ------------",i);
-                    
+
                     Log.Information("    ACE Size:  {Size}",$"0x{aceRecord.AceSize:X}");
 
                     Log.Information("    ACE Type:  {AceType}",aceRecord.AceType);
@@ -2469,12 +2488,12 @@ public class Program
                     Log.Information("    SID Type Description: {Desc}",Helpers.GetDescriptionFromEnumValue(aceRecord.SidType));
                     i += 1;
                     Console.WriteLine();
-                    
+
                 }
             }
-            
+
             Console.WriteLine();
-            
+
             foreach (var frAttribute in fr.Attributes)
             {
                 switch (frAttribute)
@@ -2485,36 +2504,36 @@ public class Program
                         Log.Information("  Flags: {Flags}, Max Version: {MaxVersion}, Flags 2: {Flags2}, Class Id: {ClassId}, Owner Id: {OwnerId}, Security Id: {SecurityId}, Quota charged: {Quota}, Update sequence #: {Usn}"
                             ,item.Flags,$"0x{item.MaxVersion:X}",item.Flags2,$"0x{item.ClassId:X}",$"0x{item.OwnerId:X}",$"0x{item.SecurityId:X}",$"0x{item.QuotaCharged:X}",$"0x{item.UpdateSequenceNumber:X}");
                         Console.WriteLine();
-                        
+
                         Log.Information("  Created On:         {Date}", item.CreatedOn);
                         Log.Information("  Modified On:        {Date}", item.ContentModifiedOn);
                         Log.Information("  Record Modified On: {Date}", item.RecordModifiedOn);
                         Log.Information("  Last Accessed On:   {Date}", item.LastAccessedOn);
-                        
+
                         Console.WriteLine();
-                        
+
                         break;
-                    
+
                     case FileName item:
                         DumpAttributeInfo(item,"FILE NAME");
-                        
+
                         Console.WriteLine();
-                        
+
                         Log.Information("  File name: {Thing}",item.FileInfo.FileName);
                         Log.Information("  Flags: {Flags}, Name Type: {NameType}, Reparse Value: {Reparse}, Physical Size: {Physical}, Logical Size: {Logical}"
                             ,item.FileInfo.Flags,item.FileInfo.NameType,$"0x{item.FileInfo.ReparseValue:X}",$"0x{item.FileInfo.PhysicalSize:X}",$"0x{item.FileInfo.LogicalSize:X}");
                         Log.Information("  Parent Entry-seq #: {Entry}-{Seq}",$"0x{item.FileInfo.ParentMftRecord.MftEntryNumber:X}",$"0x{item.FileInfo.ParentMftRecord.MftSequenceNumber:X}");
-                        
+
                         Console.WriteLine();
-                        
+
                         Log.Information("  Created On:         {Date}", item.FileInfo.CreatedOn);
                         Log.Information("  Modified On:        {Date}", item.FileInfo.ContentModifiedOn);
                         Log.Information("  Record Modified On: {Date}", item.FileInfo.RecordModifiedOn);
                         Log.Information("  Last Accessed On:   {Date}", item.FileInfo.LastAccessedOn);
-                        
+
                         Console.WriteLine();
                         break;
-                    
+
                     case Data item:
                         DumpAttributeInfo(item,"DATA");
                         Console.WriteLine();
@@ -2527,7 +2546,7 @@ public class Program
                         {
                             DumpResidentData(item.ResidentData);
                         }
-                        
+
                         Console.WriteLine();
                         break;
 
@@ -2543,15 +2562,15 @@ public class Program
                         Log.Information("  Security Information");
                         Log.Information("    Revision: {Item}", $"0x{item.SecurityInfo.Revision:X}");
                         Log.Information("    Control:  {Item}",item.SecurityInfo.Control);
-                        
+
                         Console.WriteLine();
-                        
+
                         Log.Information("    Owner Offset:   {Item}", $"0x{item.SecurityInfo.OwnerOffset:X}");
                         Log.Information("    Owner SID:      {Item}",item.SecurityInfo.OwnerSid);
                         Log.Information("    Owner SID Type: {Item}",item.SecurityInfo.OwnerSidType);
-                        
+
                         Console.WriteLine();
-                        
+
                         Log.Information("    Group Offset:   {Item}", $"0x{item.SecurityInfo.GroupOffset:X}");
                         Log.Information("    Group SID:      {Item}",item.SecurityInfo.GroupSid);
                         Log.Information("    Group SID Type: {Item}",item.SecurityInfo.GroupSidType);
@@ -2562,16 +2581,16 @@ public class Program
                             Log.Information("    Dacl Offset:    {Item}", $"0x{item.SecurityInfo.DaclOffset:X}");
                             DumpAcl(item.SecurityInfo.Dacl);
                         }
-                        
+
                         if (item.SecurityInfo.Sacl != null)
                         {
                             Console.WriteLine();
                             Log.Information("    Sacl Offset:    {Item}", $"0x{item.SecurityInfo.SaclOffset:X}");
                             DumpAcl(item.SecurityInfo.Sacl);
                         }
-                        
+
                         Console.WriteLine();
-                        
+
                         if (item.ResidentData == null)
                         {
                             DumpNonResidentData(item.NonResidentData);
@@ -2580,7 +2599,7 @@ public class Program
                         {
                             DumpResidentData(item.ResidentData);
                         }
-               
+
                         Console.WriteLine();
                         break;
 
@@ -2590,38 +2609,38 @@ public class Program
 
                         Log.Information("  Indexed Attribute Type: {IndexedAttributeType} Entry Size: {EntrySize} Number Cluster Blocks: {NumberClusterBlocks} Collation Type: {CollationType} Index entries count: {IndexEntriesCount} Entry-seq #: {Entry}-{Seq}",
                             item.IndexedAttributeType,$"0x{item.EntrySize:X}",$"0x{item.NumberClusterBlocks:X}",item.CollationType,$"0x{item.IndexEntries.Count:X}",$"0x{item.MftRecord.MftEntryNumber:X}",$"0x{item.MftRecord.MftSequenceNumber:X}");
-                        
+
                         Log.Information("  FileInfo Records Entries");
                         foreach (var itemIndex in item.IndexEntries)
                         {
                             Log.Information("  File name: {Thing}",itemIndex.FileName);
                             Log.Information("  Flags: {Flags}, Name Type: {NameType}, Reparse Value: {Reparse}, Physical Size: {Physical}, Logical Size: {Logical}",itemIndex.Flags,itemIndex.NameType,$"0x{itemIndex.ReparseValue:X}",$"0x{itemIndex.PhysicalSize:X}",$"0x{itemIndex.LogicalSize:X}");
                             Log.Information("  Parent Entry-seq #: {Entry}-{Seq}",$"0x{item.MftRecord.MftEntryNumber:X}",$"0x{item.MftRecord.MftSequenceNumber:X}");
-                        
+
                             Console.WriteLine();
-                        
+
                             Log.Information("  Created On:         {Date}", itemIndex.CreatedOn);
                             Log.Information("  Modified On:        {Date}", itemIndex.ContentModifiedOn);
                             Log.Information("  Record Modified On: {Date}", itemIndex.RecordModifiedOn);
                             Log.Information("  Last Accessed On:   {Date}", itemIndex.LastAccessedOn);
-                        
+
                             Console.WriteLine();
                         }
-                        
+
                         Console.WriteLine();
                         break;
                     case IndexAllocation item:
                         DumpAttributeInfo(item,"INDEX ALLOCATION");
                         Console.WriteLine();
-                        
+
                         DumpNonResidentData(item.NonResidentData);
-                        
+
                         Console.WriteLine();
                         break;
                     case Bitmap item:
                         DumpAttributeInfo(item,"BITMAP");
                         Console.WriteLine();
-                        
+
                         if (item.ResidentData == null)
                         {
                             DumpNonResidentData(item.NonResidentData);
@@ -2630,23 +2649,23 @@ public class Program
                         {
                             DumpResidentData(item.ResidentData);
                         }
-                        
+
                         Console.WriteLine();
                         break;
-                    
+
                     case LoggedUtilityStream item:
                         DumpAttributeInfo(item,"LOGGED UTILITY STREAM");
                         Console.WriteLine();
-                        
+
                         DumpResidentData(item.ResidentData);
 
                         Console.WriteLine();
                         break;
-                    
+
                     case ObjectId_ item:
                         DumpAttributeInfo(item,"OBJECT ID");
                         Console.WriteLine();
-                        
+
                         DateTimeOffset GetDateTimeOffsetFromGuid(Guid guid)
                         {
                             // offset to move from 1/1/0001, which is 0-time for .NET, to gregorian 0-time of 10/15/1582
@@ -2670,7 +2689,7 @@ public class Program
 
                             return new DateTimeOffset(ticks, TimeSpan.Zero);
                         }
-                        
+
                         var tempMac = item.ObjectId.ToString().Split('-').Last();
                         var objectIdMacAddress = Regex.Replace(tempMac, ".{2}", "$0:").TrimEnd(':');
                         var objectIdCreatedOn = GetDateTimeOffsetFromGuid(item.ObjectId);
@@ -2678,14 +2697,14 @@ public class Program
                         tempMac = item.BirthObjectId.ToString().Split('-').Last();
                         var birthVolumeIdMacAddress = Regex.Replace(tempMac, ".{2}", "$0:").TrimEnd(':');
                         var birthVolumeIdCreatedOn = GetDateTimeOffsetFromGuid(item.BirthObjectId);
-                        
+
                         Log.Information("  Object Id:            {ObjectId}",item.ObjectId);
                         Log.Information("    Object Id MAC:        {MacAddress}",objectIdMacAddress);
                         if (objectIdCreatedOn.Year < 3000)
                         {
-                            Log.Information("    Object Id Created On: {CreatedOn}",objectIdCreatedOn);    
+                            Log.Information("    Object Id Created On: {CreatedOn}",objectIdCreatedOn);
                         }
-                        
+
                         Console.WriteLine();
                         Log.Information("  Birth Volume Id:      {BirthVolumeId}",item.BirthVolumeId);
                         if (item.BirthObjectId.ToString() != "00000000-0000-0000-0000-000000000000")
@@ -2693,18 +2712,18 @@ public class Program
                             Log.Information("    Birth Volume Id MAC:      {MacAddress}",birthVolumeIdMacAddress);
                             Log.Information("  Birth Volume Id Created On: {CreatedOn}",birthVolumeIdCreatedOn);
                         }
-                        
+
                         Console.WriteLine();
                         Log.Information("  Birth Object Id:      {BirthObjectId}",item.BirthObjectId);
                         Log.Information("  Domain Id:            {Domain}",item.DomainId);
-                        
+
                         Console.WriteLine();
                         break;
-                    
+
                     case ExtendedAttribute item:
                         DumpAttributeInfo(item,"EXTENDED ATTRIBUTE");
                         Console.WriteLine();
-                        
+
                         var asAscii = Encoding.ASCII.GetString(item.Content);
                         var asUnicode = Encoding.Unicode.GetString(item.Content);
 
@@ -2719,16 +2738,16 @@ public class Program
                         foreach (IEa itemSubItem in item.SubItems)
                         {
                             Log.Information("  Name: {Name}", itemSubItem.InternalName);
-                            
+
                             // need to find working data to get this all done right
-                            
+
                             switch (itemSubItem.InternalName)
-                            { 
+                            {
                                 case "$LXUID":
                                 case "$LXGID":
                                 case "$LXMOD":
                                     Log.Information("  Name: {Name}",(itemSubItem as LxXXX).Name);
-                                    
+
                                     break;
                                 case ".LONGNAME":
                                     Log.Information("  .LONGNAME: {Name}",(itemSubItem as LongName).Name);
@@ -2736,13 +2755,13 @@ public class Program
                                 case "LXATTRB":
 
                                     var lxa = itemSubItem as Lxattrb;
-                                    
+
                                     Log.Information("  Format: {Format}",$"0x{lxa.Format:X}");
                                     Log.Information("  Version: {Version}",$"0x{lxa.Version:X}");
                                     Log.Information("  Mode: {Mode}",$"0x{lxa.Mode:X}");
                                     Log.Information("  Uid/Gid: {U}/G}",$"0x{lxa.Uid:X}",$"0x{lxa.Gid:X}");
                                     Log.Information("  DeviceId: {DeviceId}",$"0x{lxa.DeviceId:X}");
-                                    
+
                                     //convert to seconds so we can use it later.
                                     //.net has no API for adding nanoseconds that works, so this is what we get
                                     var lastAccessSubSec = (lxa.LastAccessNanoSeconds / 1e+9).ToString(CultureInfo.InvariantCulture);
@@ -2750,11 +2769,11 @@ public class Program
                                     var inodeChangeSubsec = (lxa.InodeChangedNanoSeconds / 1e+9).ToString(CultureInfo.InvariantCulture);
 
                                     var subSec = lastAccessSubSec.Length > 2 ? lastAccessSubSec.Substring(2) : "0000000";
-                                    
+
                                     Log.Information("  Last Access Time: {Time}.{Sub}",lxa.LastAccessTime.ToUniversalTime(),subSec);
                                     Log.Information("  Modified Time: {Time}.{Sub}",lxa.ModifiedTime,modifiedSubsec);
                                     Log.Information("  Inode Time: {Time}.{Sub}",lxa.ModifiedTime,inodeChangeSubsec);
-                                    
+
                                     break;
                                 case "LXXATTR":
                                     var lxx = itemSubItem as Lxattrr;
@@ -2762,7 +2781,7 @@ public class Program
                                     {
                                         Log.Information("  Key: {Key} --> {Value}", keyValue.Key, keyValue.Value);
                                     }
-                                    
+
                                     break;
                                 case "$KERNEL.PURGE.ESBCACHE":
                                     var kpe = itemSubItem as PurgeEsbCache;
@@ -2771,78 +2790,78 @@ public class Program
                                 case "$CI.CATALOGHINT":
                                     var ch = itemSubItem as CatHint;
                                     Log.Information("  $CI.CATALOGHINT | Hint: {Hint}",ch.Hint);
-                                    
+
                                     break;
                                 case "$KERNEL.PURGE.APPFIXCACHE":
                                 case "$KERNEL.PURGE.APPXFICACHE":
-                                    
+
                                     var af = itemSubItem as AppFixCache;
-                                    
+
                                     Log.Information("  $KERNEL.PURGE.APPFIXCACHE | Timestamp: {Timestamp} Remaining bytes: {RemainingBytes}",af.Timestamp,BitConverter.ToString(af.RemainingBytes));
                                     break;
                                 case ".CLASSINFO":
                                     Log.Information("  .ClassInfo: Not decoded");
                                     break;
-                             
-                                
+
+
                                 default:
                                     Log.Information("{Si}",itemSubItem);
                                     throw new Exception($"You should report this to saericzimmerman@gmail.com! Type not supported yet: {itemSubItem.GetType()}");
                             }
                         }
-                        
+
                         Console.WriteLine();
                         break;
-                    
+
                     case ExtendedAttributeInformation item:
                         DumpAttributeInfo(item,"EXTENDED ATTRIBUTE INFORMATION");
                         Console.WriteLine();
-                        
+
                         Log.Information("  Ea Size: {EaSize}, Number Of Extended Attributes With Need Ea Set: {NumberOfExtendedAttrWithNeedEaSet} Size Of Ea Data: {SizeOfEaData} ", $"0x{item.EaSize:X}",$"0x{item.NumberOfExtendedAttrWithNeedEaSet:X}",$"0x{item.SizeOfEaData:X}");
-                        
+
                         Console.WriteLine();
                         break;
-                    
+
                     case ReparsePoint item:
                         DumpAttributeInfo(item,"REPARSE POINT");
                         Console.WriteLine();
-                        
+
                         Log.Information("  Substitute Name: {SubstituteName} Print Name: {PrintName} Tag: {Tag}",item.SubstituteName,item.PrintName,item.Tag);
-                        
+
                         Console.WriteLine();
                         break;
-                    
+
                     case VolumeInformation item:
                         DumpAttributeInfo(item,"VOLUME INFORMATION");
                         Console.WriteLine();
-                        
+
                         Log.Information("  Volume Flags: {Flags} Major Version: {MajorVersion} Minor Version: {MinorVersion} Unknown Bytes: {Bytes} ",item.VolumeFlags,$"0x{item.MajorVersion:X}",$"0x{item.MinorVersion:X}",BitConverter.ToString(item.UnknownBytes));
-                        
+
                         Console.WriteLine();
-                        
+
                         break;
-                    
+
                     case VolumeName item:
                         DumpAttributeInfo(item,"VOLUME NAME");
                         Console.WriteLine();
-                        
+
                         Log.Information("  Volume Name: {Name}",item.VolName);
-                        
+
                         Console.WriteLine();
                         break;
-                    
+
                     case AttributeList item:
                         //BOOOOOORING
                         break;
-                    
+
                     default:
                         Log.Information("{Attrib}",frAttribute);
                         throw new Exception($"You should report this to saericzimmerman@gmail.com! Attribute Type not supported yet: {frAttribute.GetType()}");
                 }
-                
+
             }
         }
-        
+
 
         #endregion
     }
@@ -2971,7 +2990,6 @@ public class Program
 
     private static void ProcessRecords(Dictionary<string, FileRecord> records, bool includeShort, bool alltimestamp, string bdl,string drDumpDir, bool res, bool exc)
     {
-        var recordNum = 0;
 
         foreach (var fr in records)
         {
@@ -2986,7 +3004,7 @@ public class Program
                 //will get this record via extension records, which were already handled in MFT.dll code
                 continue;
             }
-            
+
             //A useful little thing to find attributes we need to decode
             // foreach (var valueAttribute in fr.Value.Attributes)
             // {
@@ -3005,8 +3023,10 @@ public class Program
                 {
                     continue;
                 }
+                recordNum = recordNum + 1;
 
                 var mftr = GetCsvData(fr.Value, fn, null, alltimestamp);
+                var mftr2 = GetCsvResData(fr.Value, fn, null, alltimestamp);
 
                 var ads = fr.Value.GetAlternateDataStreams();
 
@@ -3024,13 +3044,13 @@ public class Program
                         }
 
                         var outNameR = Path.Combine(drDumpDir, $"{fr.Value.EntryNumber}-{fr.Value.SequenceNumber}_{fn.FileInfo.FileName}.bin");
-                        
+
                         Log.Debug("Saving resident data for {Entry}-{Seq} to {File}",fr.Value.EntryNumber,fr.Value.SequenceNumber,outNameR);
 
                         File.WriteAllBytes(outNameR,((Data)da).ResidentData.Data);
                     }
                 }
-                
+
 
                 //mftr.HasAds = ads.Any();
                 if(!res)
@@ -3049,13 +3069,13 @@ public class Program
                     }
                     _mftOutRecords?.Add(mftr);
                 }
-                else 
-                { 
+                else
+                {
                     if(mftr.IsResident)
                     {
-                        _csvWriter?.WriteRecord(mftr);
+                        _csvWriter?.WriteRecord(mftr2);
 
-                        _mftOutRecords?.Add(mftr);
+                        _mftResidentOut?.Add(mftr2);
 
                         _csvWriter?.NextRecord();
                     }
@@ -3086,16 +3106,16 @@ public class Program
                     var adsRecord = GetCsvData(fr.Value, fn, adsInfo, alltimestamp);
                     //adsRecord.IsAds = true;
                     adsRecord.OtherAttributeId = adsInfo.AttributeId;
-                    _csvWriter?.WriteRecord(adsRecord);
-                    if (res)
+
+                    if (!res)
                     {
-                        _csvWriterExtra?.WriteRecord(adsRecord);
-                        _csvWriterExtra?.NextRecord();
+                        _csvWriter?.WriteRecord(adsRecord);
+
+                        _mftOutRecords?.Add(adsRecord);
+
+                        _csvWriter?.NextRecord();
                     }
 
-                    _mftOutRecords?.Add(adsRecord);
-
-                    _csvWriter?.NextRecord();
 
                     if (_fileListWriter != null)
                     {
@@ -3234,7 +3254,179 @@ public class Program
             IsDirectory = fr.IsDirectory(),
             ParentEntryNumber = fn.FileInfo.ParentMftRecord.MftEntryNumber,
             ParentSequenceNumber = fn.FileInfo.ParentMftRecord.MftSequenceNumber,
-            //NameType = fn.FileInfo.NameType,
+            NameType = fn.FileInfo.NameType,
+            FnAttributeId = fn.AttributeNumber,
+            IsResident = false,
+        };
+
+        if (mftr.IsDirectory == false)
+        {
+            mftr.Extension = Path.GetExtension(mftr.FileName);
+
+            var data = fr.Attributes.FirstOrDefault(t => t.AttributeType == AttributeType.Data);
+
+            if (data != null)
+            {
+                mftr.OtherAttributeId = data.AttributeNumber;
+            }
+        }
+
+        mftr.FileSize = fr.GetFileSize();
+
+        if (adsinfo != null)
+        {
+            mftr.FileName = $"{mftr.FileName}:{adsinfo.Name}";
+            mftr.FileSize = adsinfo.Size;
+            try
+            {
+                mftr.Extension = Path.GetExtension(adsinfo.Name);
+            }
+            catch (Exception)
+            {
+                //sometimes bad chars show up
+            }
+
+            if (adsinfo.Name == "Zone.Identifier")
+            {
+                if (adsinfo.ResidentData != null)
+                {
+                   mftr.ZoneIdContents = CodePagesEncodingProvider.Instance.GetEncoding(1252)!.GetString(adsinfo.ResidentData.Data);
+
+                }
+                else
+                {
+                    mftr.ZoneIdContents = "(Zone.Identifier data is non-resident)";
+                }
+            }
+        }
+
+        mftr.ReferenceCount = fr.GetReferenceCount();
+
+        mftr.LogfileSequenceNumber = fr.LogSequenceNumber;
+
+        var oid = (ObjectId_)fr.Attributes.SingleOrDefault(t =>
+            t.AttributeType == AttributeType.VolumeVersionObjectId);
+
+        var datas = fr.Attributes.Where(t =>
+                        t.AttributeType == AttributeType.Data);
+        mftr.ResidentData = null;
+
+        foreach (Data da in datas)
+        {
+            if (da.IsResident == false)
+            {
+                mftr.IsResident = false;
+            }
+            else
+            {
+                mftr.IsResident = true;
+                mftr.ResLength = da.AttributeContentLength;
+                mftr.ResidentData = mftr.ResidentData + Encoding.ASCII.GetString(da.ResidentData.Data);
+                break;
+            }
+        }
+        if(!datas.Any())
+        {
+            mftr.IsResident = false;
+            mftr.ResLength = 0;
+        }
+
+        if (oid != null)
+        {
+            mftr.ObjectIdFileDroid = oid.ObjectId.ToString();
+        }
+
+        var lus = (LoggedUtilityStream)fr.Attributes.FirstOrDefault(t =>
+            t.AttributeType == AttributeType.LoggedUtilityStream);
+
+        if (lus != null)
+        {
+            mftr.LoggedUtilStream = lus.Name;
+        }
+
+        var rp = fr.GetReparsePoint();
+        if (rp != null)
+        {
+            mftr.ReparseTarget = rp.SubstituteName.Replace(@"\??\", "");
+        }
+
+        var si = (StandardInfo)fr.Attributes.SingleOrDefault(t =>
+            t.AttributeType == AttributeType.StandardInformation);
+
+
+        if (si != null)
+        {
+            mftr.UpdateSequenceNumber = si.UpdateSequenceNumber;
+
+            mftr.Created0x10 = si.CreatedOn;
+            mftr.LastModified0x10 = si.ContentModifiedOn;
+            mftr.LastRecordChange0x10 = si.RecordModifiedOn;
+            mftr.LastAccess0x10 = si.LastAccessedOn;
+
+            mftr.Copied = si.ContentModifiedOn < si.CreatedOn;
+
+            if (alltimestamp || fn.FileInfo.CreatedOn != si.CreatedOn)
+            {
+                mftr.Created0x30 = fn.FileInfo.CreatedOn;
+            }
+
+            if (alltimestamp ||
+                fn.FileInfo.ContentModifiedOn != si.ContentModifiedOn)
+            {
+                mftr.LastModified0x30 = fn.FileInfo.ContentModifiedOn;
+            }
+
+            if (alltimestamp ||
+                fn.FileInfo.RecordModifiedOn != si.RecordModifiedOn)
+            {
+                mftr.LastRecordChange0x30 = fn.FileInfo.RecordModifiedOn;
+            }
+
+            if (alltimestamp ||
+                fn.FileInfo.LastAccessedOn != si.LastAccessedOn)
+            {
+                mftr.LastAccess0x30 = fn.FileInfo.LastAccessedOn;
+            }
+
+            mftr.SecurityId = si.SecurityId;
+
+            mftr.SiFlags = si.Flags;
+
+            //if (mftr.Created0x30.HasValue && mftr.Created0x10?.UtcTicks < mftr.Created0x30.Value.UtcTicks)
+            //{
+            //    mftr.Timestomped = true;
+            //}
+
+            //if (mftr.Created0x10?.Millisecond == 0 || mftr.LastModified0x10?.Millisecond == 0)
+            //{
+            //    mftr.uSecZeros = true;
+            //}
+        }
+        else
+        {
+            //no si, so update FN timestamps
+            mftr.Created0x30 = fn.FileInfo.CreatedOn;
+            mftr.LastModified0x10 = fn.FileInfo.ContentModifiedOn;
+            mftr.LastRecordChange0x10 = fn.FileInfo.RecordModifiedOn;
+            mftr.LastAccess0x10 = fn.FileInfo.LastAccessedOn;
+        }
+
+        return mftr;
+    }
+
+    public static MFTResidentOut GetCsvResData(FileRecord fr, FileName fn, AdsInfo adsinfo, bool alltimestamp)
+    {
+        var mftr = new MFTResidentOut
+        {
+            EntryNumber = fr.EntryNumber,
+            FileName = fn.FileInfo.FileName,
+            InUse = fr.IsDeleted() == false,
+            ParentPath = _mft.GetFullParentPath(fn.FileInfo.ParentMftRecord.GetKey()),
+            SequenceNumber = fr.SequenceNumber,
+            IsDirectory = fr.IsDirectory(),
+            ParentEntryNumber = fn.FileInfo.ParentMftRecord.MftEntryNumber,
+            ParentSequenceNumber = fn.FileInfo.ParentMftRecord.MftSequenceNumber,
+            NameType = fn.FileInfo.NameType,
             FnAttributeId = fn.AttributeNumber,
             IsResident = false,
         };
@@ -3305,16 +3497,16 @@ public class Program
                 break;
             }
         }
-        if(!datas.Any())
+        if (!datas.Any())
         {
-            mftr.IsResident = false; 
+            mftr.IsResident = false;
             mftr.ResLength = 0;
         }
 
-        if (oid != null)
-        {
-            mftr.ObjectIdFileDroid = oid.ObjectId.ToString();
-        }
+        //if (oid != null)
+        //{
+        //    mftr.ObjectIdFileDroid = oid.ObjectId.ToString();
+        //}
 
         //var lus = (LoggedUtilityStream)fr.Attributes.FirstOrDefault(t =>
         //    t.AttributeType == AttributeType.LoggedUtilityStream);
@@ -3323,7 +3515,7 @@ public class Program
         //{
         //    mftr.LoggedUtilStream = lus.Name;
         //}
-       
+
         //var rp = fr.GetReparsePoint();
         //if (rp != null)
         //{
